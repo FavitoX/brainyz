@@ -1,6 +1,6 @@
 # brainyz
 
-[![CI](https://github.com/favitox/brainyz/actions/workflows/ci.yml/badge.svg)](https://github.com/favitox/brainyz/actions/workflows/ci.yml)
+[![CI](https://github.com/FavitoX/brainyz/actions/workflows/ci.yml/badge.svg)](https://github.com/FavitoX/brainyz/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 > Your technical memory, global by default.
@@ -119,7 +119,7 @@ From then on, every Claude Code session in any repo has tools like
 ### From GitHub Releases (recommended)
 
 Download the archive for your platform from
-[Releases](https://github.com/favitox/brainyz/releases), extract, and put
+[Releases](https://github.com/FavitoX/brainyz/releases), extract, and put
 `brainz` on your `PATH`.
 
 Supported runtimes: `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`, `win-x64`.
@@ -140,7 +140,7 @@ Requires: .NET 10 SDK, and a platform C/C++ toolchain for NativeAOT
 ([prerequisites](https://aka.ms/nativeaot-prerequisites)).
 
 ```bash
-git clone https://github.com/favitox/brainyz
+git clone https://github.com/FavitoX/brainyz
 cd brainyz
 dotnet publish src/Brainyz.Cli -c Release -r <your-runtime>
 # Copy the binary to your PATH as `brainz`

@@ -7,7 +7,7 @@ architecture or the user-facing surface.
 ## Getting started
 
 ```bash
-git clone https://github.com/favitox/brainyz
+git clone https://github.com/FavitoX/brainyz
 cd brainyz
 dotnet test              # 57 tests, should be green
 ```
