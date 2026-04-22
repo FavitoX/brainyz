@@ -27,6 +27,45 @@ public sealed partial class BrainStore
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<bool> UpdatePrincipleAsync(Principle p, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("principles", p.Id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE principles SET
+                project_id = @pid,
+                title      = @title,
+                statement  = @st,
+                rationale  = @rat,
+                active     = @active,
+                updated_at = @updated
+            WHERE id = @id
+            """;
+        // Bind order must match SQL order — Nelknet 0.2.5 binds positionally
+        // and silently mismatches names. Keep this ordering stable.
+        cmd.Bind("@pid", p.ProjectId);
+        cmd.Bind("@title", p.Title);
+        cmd.Bind("@st", p.Statement);
+        cmd.Bind("@rat", p.Rationale);
+        cmd.Bind("@active", p.Active ? 1 : 0);
+        cmd.Bind("@updated", _clock.NowMs());
+        cmd.Bind("@id", p.Id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> DeletePrincipleAsync(string id, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("principles", id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM principles WHERE id = @id";
+        cmd.Bind("@id", id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
     public async Task<Principle?> GetPrincipleAsync(string id, CancellationToken ct = default)
     {
         await using var cmd = _conn.CreateCommand();

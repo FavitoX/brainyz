@@ -27,6 +27,44 @@ public sealed partial class BrainStore
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<bool> UpdateNoteAsync(Note n, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("notes", n.Id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE notes SET
+                project_id = @pid,
+                title      = @title,
+                content    = @content,
+                source     = @source,
+                active     = @active,
+                updated_at = @updated
+            WHERE id = @id
+            """;
+        // Bind order must match SQL order — Nelknet 0.2.5 binds positionally.
+        cmd.Bind("@pid", n.ProjectId);
+        cmd.Bind("@title", n.Title);
+        cmd.Bind("@content", n.Content);
+        cmd.Bind("@source", n.Source);
+        cmd.Bind("@active", n.Active ? 1 : 0);
+        cmd.Bind("@updated", _clock.NowMs());
+        cmd.Bind("@id", n.Id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> DeleteNoteAsync(string id, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("notes", id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM notes WHERE id = @id";
+        cmd.Bind("@id", id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
     public async Task<Note?> GetNoteAsync(string id, CancellationToken ct = default)
     {
         await using var cmd = _conn.CreateCommand();

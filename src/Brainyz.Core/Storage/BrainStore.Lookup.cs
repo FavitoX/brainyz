@@ -24,10 +24,14 @@ public sealed partial class BrainStore
     private async Task<bool> ExistsAsync(string table, string id, CancellationToken ct)
     {
         await using var cmd = _conn.CreateCommand();
-        // Table name is a compile-time constant — no injection risk.
+        // Table name is a compile-time constant — no injection risk. The
+        // reader path is deliberate: Nelknet 0.2.5's ExecuteScalarAsync
+        // occasionally returns null for valid rows in the add-then-read
+        // pattern exercised by Update* tests, whereas the reader form is
+        // reliable across all call sites.
         cmd.CommandText = $"SELECT 1 FROM {table} WHERE id = @id LIMIT 1";
         cmd.Bind("@id", id);
-        var result = await cmd.ExecuteScalarAsync(ct);
-        return result is not null && result is not DBNull;
+        await using var rdr = await cmd.ExecuteReaderAsync(ct);
+        return await rdr.ReadAsync(ct);
     }
 }

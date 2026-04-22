@@ -27,6 +27,17 @@ public sealed partial class BrainStore
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    public async Task<bool> DeleteLinkAsync(string linkId, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("links", linkId, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM links WHERE id = @id";
+        cmd.Bind("@id", linkId);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
     /// <summary>
     /// Retrieves links with optional filters. Any combination of
     /// <paramref name="fromType"/>/<paramref name="fromId"/>,

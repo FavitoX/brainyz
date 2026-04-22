@@ -406,6 +406,6 @@ appsettings.Local.json
 secrets.json
 
 # Local publish outputs (not shipped)
-dist-local/
 dist/
+dist-*/
 
