@@ -1,6 +1,7 @@
 // Copyright 2026 Favio Andres Leyva
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -41,15 +42,87 @@ namespace Brainyz.Cli;
 /// </remarks>
 internal static class NativeLibraryResolver
 {
+    private static readonly bool Diag =
+        Environment.GetEnvironmentVariable("BRAINYZ_DIAG") is "1" or "true";
+
     private static IntPtr _handle;
 
     public static void Register()
     {
-        if (!TryPreload(out _handle)) return;
+        if (Diag)
+        {
+            Console.Error.WriteLine($"[diag] AppContext.BaseDirectory = {AppContext.BaseDirectory}");
+            Console.Error.WriteLine($"[diag] AppDomain.CurrentDomain.BaseDirectory = {AppDomain.CurrentDomain.BaseDirectory}");
+            Console.Error.WriteLine($"[diag] Environment.CurrentDirectory = {Environment.CurrentDirectory}");
+            Console.Error.WriteLine($"[diag] Environment.ProcessPath = {Environment.ProcessPath}");
+        }
 
-        // Any Nelknet type works to get the binding assembly; pick a public one.
-        var nelknetAssembly = typeof(Nelknet.LibSQL.Data.LibSQLConnection).Assembly;
-        NativeLibrary.SetDllImportResolver(nelknetAssembly, Resolve);
+        if (!TryPreload(out _handle))
+        {
+            if (Diag) Console.Error.WriteLine("[diag] preload failed for every candidate; resolver not registered.");
+            return;
+        }
+
+        if (Diag) Console.Error.WriteLine($"[diag] preload ok; handle=0x{_handle:X}");
+
+        // Force-load Nelknet.LibSQL.Bindings before scanning — otherwise the
+        // assembly hasn't been resolved yet (it's a transitive dependency of
+        // Data that the CLR only loads when one of its members is used).
+        Assembly? bindingsAssembly = null;
+        try { bindingsAssembly = Assembly.Load("Nelknet.LibSQL.Bindings"); }
+        catch (Exception ex) when (Diag)
+        {
+            Console.Error.WriteLine($"[diag] Assembly.Load(\"Nelknet.LibSQL.Bindings\") threw {ex.GetType().Name}: {ex.Message}");
+        }
+
+        // Register on both assemblies so any P/Invoke for "libsql" from
+        // either surface hits our pre-loaded handle.
+        var dataAssembly = typeof(Nelknet.LibSQL.Data.LibSQLConnection).Assembly;
+        NativeLibrary.SetDllImportResolver(dataAssembly, Resolve);
+        if (bindingsAssembly is not null)
+            NativeLibrary.SetDllImportResolver(bindingsAssembly, Resolve);
+        if (Diag) Console.Error.WriteLine($"[diag] resolver registered on {dataAssembly.GetName().Name}" +
+                                          (bindingsAssembly is not null ? " and Nelknet.LibSQL.Bindings" : ""));
+
+        // Nelknet.LibSQL.Bindings.LibSQLNativeLibrary.TryInitialize() derives
+        // its search paths from Assembly.Location, which is empty in
+        // single-file bundles. Its AppDomain.CurrentDomain.BaseDirectory
+        // fallback does not recover either (observed on .NET 10 single-file
+        // Windows x64). Since we just loaded the native lib successfully,
+        // flip Nelknet's private _isInitialized flag so it skips its broken
+        // search and lets the subsequent P/Invokes bind to the already-
+        // loaded module.
+        ShortCircuitNelknetInitialization(bindingsAssembly);
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2075",
+        Justification = "Field is private to Nelknet.LibSQL.Bindings; the whole assembly is kept alive " +
+                        "by direct type references elsewhere in BrainTools / BrainStore, so trimming " +
+                        "preserves the target at whole-assembly granularity.")]
+    private static void ShortCircuitNelknetInitialization(Assembly? bindingsAssembly)
+    {
+        try
+        {
+            bindingsAssembly ??= AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "Nelknet.LibSQL.Bindings");
+            var type = bindingsAssembly?.GetType("Nelknet.LibSQL.Bindings.LibSQLNativeLibrary");
+            var field = type?.GetField("_isInitialized", BindingFlags.NonPublic | BindingFlags.Static);
+            if (field is not null && field.FieldType == typeof(bool))
+            {
+                field.SetValue(null, true);
+                if (Diag) Console.Error.WriteLine("[diag] short-circuited Nelknet._isInitialized = true");
+            }
+            else if (Diag)
+            {
+                Console.Error.WriteLine(
+                    $"[diag] could not locate LibSQLNativeLibrary._isInitialized " +
+                    $"(type={type?.FullName ?? "null"}, field={field?.Name ?? "null"}).");
+            }
+        }
+        catch (Exception ex)
+        {
+            if (Diag) Console.Error.WriteLine($"[diag] reflection hack threw {ex.GetType().Name}: {ex.Message}");
+        }
     }
 
     private static bool TryPreload(out IntPtr handle)
@@ -57,8 +130,19 @@ internal static class NativeLibraryResolver
         handle = IntPtr.Zero;
         foreach (var candidate in Candidates())
         {
-            if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out handle))
+            var exists = File.Exists(candidate);
+            if (Diag) Console.Error.WriteLine($"[diag] candidate {candidate} exists={exists}");
+            if (!exists) continue;
+
+            try
+            {
+                handle = NativeLibrary.Load(candidate);
                 return true;
+            }
+            catch (Exception ex)
+            {
+                if (Diag) Console.Error.WriteLine($"[diag] Load({candidate}) threw {ex.GetType().Name}: {ex.Message}");
+            }
         }
         return false;
     }
