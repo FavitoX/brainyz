@@ -408,4 +408,5 @@ secrets.json
 # Local publish outputs (not shipped)
 dist/
 dist-*/
+tools/smoke-binary/
 

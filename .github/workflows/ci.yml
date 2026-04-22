@@ -32,3 +32,9 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
+
+      # End-to-end smoke: publishes a single-file binary and drives it through
+      # a full init → add → edit → link → search → delete workflow. Cheap
+      # insurance against single-file regressions the in-process tests miss.
+      - name: Smoke test
+        run: dotnet run tools/smoke-test.cs

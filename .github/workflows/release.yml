@@ -65,6 +65,19 @@ jobs:
           --no-restore
           -o dist
 
+      # Drive the just-published AOT binary through the full CRUD workflow.
+      # If a given RID's binary is broken (single-file, trim or AOT
+      # regression), this catches it before the Release gets published.
+      - name: Smoke test (AOT binary)
+        shell: bash
+        run: |
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            export BRAINZ_BINARY="$GITHUB_WORKSPACE/dist/brainz.exe"
+          else
+            export BRAINZ_BINARY="$GITHUB_WORKSPACE/dist/brainz"
+          fi
+          dotnet run tools/smoke-test.cs
+
       - name: Package (tar.gz)
         if: matrix.archive == 'tar.gz'
         run: |
