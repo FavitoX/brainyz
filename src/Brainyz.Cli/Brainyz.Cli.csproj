@@ -4,7 +4,7 @@
     <ProjectReference Include="..\Brainyz.Core\Brainyz.Core.csproj" />
     <PackageReference Include="System.CommandLine" Version="2.0.6" />
     <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
   </ItemGroup>
 
   <PropertyGroup>
