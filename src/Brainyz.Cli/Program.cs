@@ -17,6 +17,8 @@ root.Subcommands.Add(ListCommand.Build());
 root.Subcommands.Add(SearchCommand.Build());
 root.Subcommands.Add(ShowCommand.Build());
 root.Subcommands.Add(LinkCommand.Build());
+root.Subcommands.Add(EditCommand.Build());
+root.Subcommands.Add(DeleteCommand.Build());
 root.Subcommands.Add(ReindexCommand.Build());
 root.Subcommands.Add(McpCommand.Build());
 

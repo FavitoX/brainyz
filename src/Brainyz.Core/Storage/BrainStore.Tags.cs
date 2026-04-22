@@ -60,6 +60,60 @@ public sealed partial class BrainStore
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
+    /// <summary>
+    /// Removes a tag from an entity. The tag itself stays in the catalog —
+    /// use <see cref="DeleteTagAsync"/> to remove the tag entirely.
+    /// </summary>
+    public async Task<bool> UntagAsync(
+        LinkEntity entity,
+        string entityId,
+        string tagPath,
+        CancellationToken ct = default)
+    {
+        var (table, idColumn) = TagJoinTable(entity);
+
+        await using var exists = _conn.CreateCommand();
+        exists.CommandText = $"""
+            SELECT 1 FROM {table} jt
+            JOIN tags t ON t.id = jt.tag_id
+            WHERE jt.{idColumn} = @eid AND t.path = @path
+            LIMIT 1
+            """;
+        exists.Bind("@eid", entityId);
+        exists.Bind("@path", tagPath);
+        var found = await exists.ExecuteScalarAsync(ct);
+        if (found is null || found is DBNull) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = $"""
+            DELETE FROM {table}
+            WHERE {idColumn} = @eid
+              AND tag_id IN (SELECT id FROM tags WHERE path = @path)
+            """;
+        cmd.Bind("@eid", entityId);
+        cmd.Bind("@path", tagPath);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Deletes a tag and cascades to every entity that was tagged with it.
+    /// </summary>
+    public async Task<bool> DeleteTagAsync(string tagPath, CancellationToken ct = default)
+    {
+        await using var exists = _conn.CreateCommand();
+        exists.CommandText = "SELECT 1 FROM tags WHERE path = @path LIMIT 1";
+        exists.Bind("@path", tagPath);
+        var found = await exists.ExecuteScalarAsync(ct);
+        if (found is null || found is DBNull) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM tags WHERE path = @path";
+        cmd.Bind("@path", tagPath);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
     public async Task<IReadOnlyList<Tag>> GetTagsAsync(
         LinkEntity entity,
         string entityId,

@@ -67,6 +67,67 @@ public sealed partial class BrainStore
         tx.Commit();
     }
 
+    /// <summary>
+    /// Replaces every mutable column of a decision by id. The update trigger
+    /// copies the previous row into <c>decisions_history</c> automatically.
+    /// Returns true when a row matched; false means the id did not exist.
+    /// </summary>
+    public async Task<bool> UpdateDecisionAsync(Decision d, CancellationToken ct = default)
+    {
+        // Nelknet 0.2.5 does not expose a reliable affected-rows count
+        // (ExecuteNonQueryAsync returns -1, ExecuteReaderAsync over
+        // UPDATE … RETURNING delivers zero rows). We pre-check existence
+        // instead and skip the UPDATE when the id is unknown.
+        if (!await ExistsAsync("decisions", d.Id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE decisions SET
+                project_id   = @pid,
+                title        = @title,
+                status       = @status,
+                confidence   = @conf,
+                context      = @ctx,
+                decision     = @dec,
+                rationale    = @rat,
+                consequences = @cons,
+                revisit_at   = @revisit,
+                updated_at   = @updated
+            WHERE id = @id
+            """;
+        // Bind order must match SQL order — Nelknet 0.2.5 binds positionally
+        // and silently mismatches by name.
+        cmd.Bind("@pid", d.ProjectId);
+        cmd.Bind("@title", d.Title);
+        cmd.Bind("@status", EncodeStatus(d.Status));
+        cmd.Bind("@conf", EncodeConfidence(d.Confidence));
+        cmd.Bind("@ctx", d.Context);
+        cmd.Bind("@dec", d.Text);
+        cmd.Bind("@rat", d.Rationale);
+        cmd.Bind("@cons", d.Consequences);
+        cmd.Bind("@revisit", (object?)d.RevisitAtMs);
+        cmd.Bind("@updated", _clock.NowMs());
+        cmd.Bind("@id", d.Id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Deletes a decision and — via schema triggers — its alternatives,
+    /// embeddings, tag bindings, and incoming/outgoing links. The deletion
+    /// is snapshotted into <c>decisions_history</c> first.
+    /// </summary>
+    public async Task<bool> DeleteDecisionAsync(string id, CancellationToken ct = default)
+    {
+        if (!await ExistsAsync("decisions", id, ct)) return false;
+
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM decisions WHERE id = @id";
+        cmd.Bind("@id", id);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return true;
+    }
+
     public async Task<Decision?> GetDecisionAsync(string id, CancellationToken ct = default)
     {
         await using var cmd = _conn.CreateCommand();

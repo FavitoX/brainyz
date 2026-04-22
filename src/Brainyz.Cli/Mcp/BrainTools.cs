@@ -248,6 +248,130 @@ public sealed class BrainTools(BrainContext ctx)
     }
 
     [McpServerTool]
+    [Description("Patch specific fields of an existing decision. Fields left null stay as they are. Re-embeds the entity afterwards if the content changed.")]
+    public async Task<string> UpdateDecision(
+        [Description("ULID of the decision.")] string id,
+        [Description("New title. Null keeps the existing title.")] string? title = null,
+        [Description("New body. Null keeps the existing body.")] string? text = null,
+        [Description("New context. Null keeps the existing context. Empty string clears.")] string? context = null,
+        [Description("New rationale.")] string? rationale = null,
+        [Description("New consequences.")] string? consequences = null,
+        [Description("low | medium | high — pass 'none' to clear.")] string? confidence = null,
+        [Description("proposed | accepted | deprecated | superseded")] string? status = null,
+        CancellationToken ct = default)
+    {
+        var current = await ctx.Store.GetDecisionAsync(id, ct)
+            ?? throw new ArgumentException($"Decision {id} not found");
+
+        Confidence? conf = current.Confidence;
+        if (confidence is not null)
+        {
+            if (confidence.Equals("none", StringComparison.OrdinalIgnoreCase)) conf = null;
+            else if (Mapping.TryParseConfidence(confidence, out var parsed)) conf = parsed;
+            else throw new ArgumentException($"Invalid confidence '{confidence}'");
+        }
+
+        DecisionStatus st = current.Status;
+        if (status is not null)
+        {
+            if (!Mapping.TryParseStatus(status, out st))
+                throw new ArgumentException($"Invalid status '{status}'");
+        }
+
+        var patched = current with
+        {
+            Title = title ?? current.Title,
+            Text = text ?? current.Text,
+            Context = context ?? current.Context,
+            Rationale = rationale ?? current.Rationale,
+            Consequences = consequences ?? current.Consequences,
+            Confidence = conf,
+            Status = st,
+        };
+        if (!await ctx.Store.UpdateDecisionAsync(patched, ct))
+            throw new InvalidOperationException($"Update failed for decision {id}");
+        await ctx.Embeddings.IndexDecisionAsync(patched, ct);
+        return id;
+    }
+
+    [McpServerTool]
+    [Description("Patch a principle. Pass only the fields you want to change.")]
+    public async Task<string> UpdatePrinciple(
+        [Description("ULID of the principle.")] string id,
+        [Description("New title.")] string? title = null,
+        [Description("New statement.")] string? statement = null,
+        [Description("New rationale.")] string? rationale = null,
+        [Description("Active flag. Null keeps the current value; false archives; true un-archives.")] bool? active = null,
+        CancellationToken ct = default)
+    {
+        var current = await ctx.Store.GetPrincipleAsync(id, ct)
+            ?? throw new ArgumentException($"Principle {id} not found");
+
+        var patched = current with
+        {
+            Title = title ?? current.Title,
+            Statement = statement ?? current.Statement,
+            Rationale = rationale ?? current.Rationale,
+            Active = active ?? current.Active,
+        };
+        if (!await ctx.Store.UpdatePrincipleAsync(patched, ct))
+            throw new InvalidOperationException($"Update failed for principle {id}");
+        await ctx.Embeddings.IndexPrincipleAsync(patched, ct);
+        return id;
+    }
+
+    [McpServerTool]
+    [Description("Patch a note. Pass only the fields you want to change.")]
+    public async Task<string> UpdateNote(
+        [Description("ULID of the note.")] string id,
+        [Description("New title.")] string? title = null,
+        [Description("New body content.")] string? content = null,
+        [Description("New source URL.")] string? source = null,
+        [Description("Active flag.")] bool? active = null,
+        CancellationToken ct = default)
+    {
+        var current = await ctx.Store.GetNoteAsync(id, ct)
+            ?? throw new ArgumentException($"Note {id} not found");
+
+        var patched = current with
+        {
+            Title = title ?? current.Title,
+            Content = content ?? current.Content,
+            Source = source ?? current.Source,
+            Active = active ?? current.Active,
+        };
+        if (!await ctx.Store.UpdateNoteAsync(patched, ct))
+            throw new InvalidOperationException($"Update failed for note {id}");
+        await ctx.Embeddings.IndexNoteAsync(patched, ct);
+        return id;
+    }
+
+    [McpServerTool]
+    [Description("Delete a decision, principle, or note by id. Schema triggers cascade to alternatives, embeddings, tag bindings and links, and keep a history snapshot. Returns true when a row was removed, false when the id did not match.")]
+    public async Task<bool> Delete(
+        [Description("ULID of the entity to delete.")] string id,
+        CancellationToken ct = default)
+    {
+        var type = await ctx.Store.FindEntityByIdAsync(id, ct);
+        return type switch
+        {
+            LinkEntity.Decision => await ctx.Store.DeleteDecisionAsync(id, ct),
+            LinkEntity.Principle => await ctx.Store.DeletePrincipleAsync(id, ct),
+            LinkEntity.Note => await ctx.Store.DeleteNoteAsync(id, ct),
+            _ => false,
+        };
+    }
+
+    [McpServerTool]
+    [Description("Delete a link by its id. Entities on either end are not affected.")]
+    public async Task<bool> DeleteLink(
+        [Description("ULID of the link to delete.")] string linkId,
+        CancellationToken ct = default)
+    {
+        return await ctx.Store.DeleteLinkAsync(linkId, ct);
+    }
+
+    [McpServerTool]
     [Description("Create a typed link between two entities (decision / principle / note). Types are detected from the ids.")]
     public async Task<string> Link(
         [Description("Source entity id (ULID).")] string fromId,
