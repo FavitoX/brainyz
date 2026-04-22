@@ -29,9 +29,10 @@ jobs:
           - runner: ubuntu-24.04-arm
             rid: linux-arm64
             archive: tar.gz
-          - runner: macos-13        # Intel
-            rid: osx-x64
-            archive: tar.gz
+          # macos-13 (Intel) runners are throttled on the free tier;
+          # Apple Silicon covers most real-world Mac developers today and
+          # Rosetta 2 runs x64 binaries when needed. Bring osx-x64 back
+          # if there's demand.
           - runner: macos-latest    # Apple silicon
             rid: osx-arm64
             archive: tar.gz
