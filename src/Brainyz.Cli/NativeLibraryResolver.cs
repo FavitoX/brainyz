@@ -95,17 +95,26 @@ internal static class NativeLibraryResolver
         ShortCircuitNelknetInitialization(bindingsAssembly);
     }
 
+    // Tell the IL trimmer to keep LibSQLNativeLibrary and its _isInitialized
+    // field around even in aggressive AOT. Without this the flag is eligible
+    // for removal (private static, no code that the analyzer can see uses it)
+    // and the reflection lookup below fails silently.
+    [DynamicDependency(
+        DynamicallyAccessedMemberTypes.NonPublicFields,
+        "Nelknet.LibSQL.Bindings.LibSQLNativeLibrary",
+        "Nelknet.LibSQL.Bindings")]
     [UnconditionalSuppressMessage("Trimming", "IL2075",
-        Justification = "Field is private to Nelknet.LibSQL.Bindings; the whole assembly is kept alive " +
-                        "by direct type references elsewhere in BrainTools / BrainStore, so trimming " +
-                        "preserves the target at whole-assembly granularity.")]
+        Justification = "Target is preserved via DynamicDependency on the same method.")]
     private static void ShortCircuitNelknetInitialization(Assembly? bindingsAssembly)
     {
+        _ = bindingsAssembly; // kept for diagnostic symmetry; resolution uses AQN below
+
         try
         {
-            bindingsAssembly ??= AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "Nelknet.LibSQL.Bindings");
-            var type = bindingsAssembly?.GetType("Nelknet.LibSQL.Bindings.LibSQLNativeLibrary");
+            // Type.GetType with a string-literal assembly-qualified name is
+            // the trim-safe form (warns if we used Assembly.GetType(string)).
+            var type = Type.GetType(
+                "Nelknet.LibSQL.Bindings.LibSQLNativeLibrary, Nelknet.LibSQL.Bindings");
             var field = type?.GetField("_isInitialized", BindingFlags.NonPublic | BindingFlags.Static);
             if (field is not null && field.FieldType == typeof(bool))
             {
