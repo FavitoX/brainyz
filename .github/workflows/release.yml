@@ -1,0 +1,112 @@
+# Copyright 2026 Favio Andres Leyva
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to build and release (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write   # needed to create releases
+
+jobs:
+  build:
+    name: build ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            rid: linux-x64
+            archive: tar.gz
+          - runner: ubuntu-24.04-arm
+            rid: linux-arm64
+            archive: tar.gz
+          - runner: macos-13        # Intel
+            rid: osx-x64
+            archive: tar.gz
+          - runner: macos-latest    # Apple silicon
+            rid: osx-arm64
+            archive: tar.gz
+          - runner: windows-latest
+            rid: win-x64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # NativeAOT on Linux needs a platform linker + zlib headers.
+      - name: Install AOT prerequisites (Linux)
+        if: startsWith(matrix.rid, 'linux-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore src/Brainyz.Cli/Brainyz.Cli.csproj -r ${{ matrix.rid }}
+
+      - name: Publish (AOT)
+        run: >
+          dotnet publish src/Brainyz.Cli/Brainyz.Cli.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --no-restore
+          -o dist
+
+      - name: Package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          cd dist
+          tar -czf ../brainz-${{ matrix.rid }}.tar.gz brainz *.so *.dylib 2>/dev/null || \
+          tar -czf ../brainz-${{ matrix.rid }}.tar.gz brainz
+          cd ..
+          ls -la brainz-${{ matrix.rid }}.tar.gz
+
+      - name: Package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          # Ship the native binary plus any libsql.dll that tagged along.
+          $files = Get-ChildItem -Path dist -Include brainz.exe,*.dll -Recurse
+          Compress-Archive -Path $files -DestinationPath brainz-${{ matrix.rid }}.zip -Force
+          Get-Item brainz-${{ matrix.rid }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: brainz-${{ matrix.rid }}
+          path: brainz-${{ matrix.rid }}.*
+
+  release:
+    name: publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: artifacts/brainz-*.*

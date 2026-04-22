@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Brainyz.Cli/Brainyz.Cli.csproj" />
+    <Project Path="src/Brainyz.Core/Brainyz.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Brainyz.Tests/Brainyz.Tests.csproj" />
+  </Folder>
+</Solution>

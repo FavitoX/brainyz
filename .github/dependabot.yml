@@ -1,0 +1,24 @@
+# Copyright 2026 Favio Andres Leyva
+# SPDX-License-Identifier: Apache-2.0
+
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      mcp:
+        patterns: ['ModelContextProtocol*']
+      nelknet:
+        patterns: ['Nelknet.LibSQL*']
+      commandline:
+        patterns: ['System.CommandLine*']
+      hosting:
+        patterns: ['Microsoft.Extensions.*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
