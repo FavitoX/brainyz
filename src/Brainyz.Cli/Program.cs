@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.CommandLine;
+using Brainyz.Cli;
 using Brainyz.Cli.Commands;
+
+// Must run before anything touches Nelknet / LibSQL.
+NativeLibraryResolver.Register();
 
 var root = new RootCommand("brainyz — personal global knowledge layer for devs working with AI agents");
 

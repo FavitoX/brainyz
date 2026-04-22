@@ -122,7 +122,9 @@ Download the archive for your platform from
 [Releases](https://github.com/FavitoX/brainyz/releases), extract, and put
 `brainz` on your `PATH`.
 
-Supported runtimes: `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64`, `win-x64`.
+Supported runtimes: `linux-x64`, `linux-arm64`, `osx-arm64`, `win-x64`.
+Intel Macs are not published today (Rosetta 2 runs the x64 binary from
+other platforms; open an issue if you need a native Intel build).
 
 Then pull the embedding model once:
 
