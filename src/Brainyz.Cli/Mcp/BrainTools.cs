@@ -3,6 +3,8 @@
 
 using System.ComponentModel;
 using Brainyz.Core;
+using Brainyz.Core.Errors;
+using Brainyz.Core.Export;
 using Brainyz.Core.Models;
 using ModelContextProtocol.Server;
 
@@ -416,5 +418,30 @@ public sealed class BrainTools(BrainContext ctx)
         cwd ??= Directory.GetCurrentDirectory();
         var scope = await ctx.Resolver.ResolveAsync(cwd, ct);
         return scope.ProjectId;
+    }
+
+    // ───────── Export / Backup (v0.3) ─────────
+
+    [McpServerTool]
+    [Description("Export the brainyz brain as a JSONL file. Useful for inspection, diffing, or additive re-import. Optionally filter by project id. Set includeHistory=true to also dump the audit trail (off by default). This is read-only from the DB perspective.")]
+    public async Task<string> ExportBrain(
+        [Description("Absolute path where the JSONL file should be written.")] string path,
+        [Description("Optional project id to filter by; null or empty exports the whole brain.")] string? projectId = null,
+        [Description("Include history entries (off by default).")] bool includeHistory = false,
+        CancellationToken ct = default)
+    {
+        if (projectId is "") projectId = null;
+
+        if (projectId is not null && await ctx.Store.GetProjectAsync(projectId, ct) is null)
+            throw new BrainyzException(
+                ErrorCode.BZ_EXPORT_PROJECT_NOT_FOUND,
+                $"project '{projectId}' not found");
+
+        var exporter = new JsonlExporter(ctx.Store, BrainyzCliVersion.Current);
+        var result = await exporter.ExportAsync(path, projectId, includeHistory, ct);
+
+        int total = 0;
+        foreach (var v in result.Counts.Values) total += v;
+        return $"exported {total} records to {path}";
     }
 }
