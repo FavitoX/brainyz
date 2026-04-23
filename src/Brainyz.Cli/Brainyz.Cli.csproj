@@ -18,4 +18,8 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Brainyz.Tests" />
+  </ItemGroup>
+
 </Project>
