@@ -140,7 +140,10 @@ public sealed partial class BrainStore
         return results;
     }
 
-    private static string VectorLiteral(ReadOnlySpan<float> vector)
+    // Made internal so the import path (Brainyz.Core.Import.JsonlImporter)
+    // can reuse the exact string-literal format LibSQL's `vector32(...)`
+    // accepts. Do not rename without updating consumers.
+    internal static string VectorLiteral(ReadOnlySpan<float> vector)
     {
         var sb = new StringBuilder(vector.Length * 8);
         sb.Append('[');

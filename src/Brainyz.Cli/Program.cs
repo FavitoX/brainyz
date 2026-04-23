@@ -22,6 +22,7 @@ root.Subcommands.Add(EditCommand.Build());
 root.Subcommands.Add(DeleteCommand.Build());
 root.Subcommands.Add(ReindexCommand.Build());
 root.Subcommands.Add(ExportCommand.Build());
+root.Subcommands.Add(ImportCommand.Build());
 root.Subcommands.Add(McpCommand.Build());
 
 try
