@@ -259,6 +259,8 @@ Backup*/
 # brainyz: Core.Backup is a source folder, not a VS backup artifact
 !src/Brainyz.Core/Backup/
 !src/Brainyz.Core/Backup/**
+!tests/Brainyz.Tests/Backup/
+!tests/Brainyz.Tests/Backup/**
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/

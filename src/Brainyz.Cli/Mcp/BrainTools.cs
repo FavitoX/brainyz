@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.ComponentModel;
+using System.IO.Compression;
 using Brainyz.Core;
+using Brainyz.Core.Backup;
 using Brainyz.Core.Errors;
 using Brainyz.Core.Export;
 using Brainyz.Core.Models;
@@ -444,4 +446,24 @@ public sealed class BrainTools(BrainContext ctx)
         foreach (var v in result.Counts.Values) total += v;
         return $"exported {total} records to {path}";
     }
+
+    [McpServerTool]
+    [Description("Create a zipped backup of the brainyz DB at the given path. Compression is 'fastest' — optimal for agent-initiated snapshots before risky operations. Read-only from the DB perspective.")]
+    public async Task<string> BackupBrain(
+        [Description("Absolute path for the output .zip backup.")] string path,
+        CancellationToken ct = default)
+    {
+        var backup = new ZipBackup(ctx.Store, BrainyzCliVersion.Current);
+        await backup.BackupAsync(path, CompressionLevel.Fastest, ct);
+        var size = new FileInfo(path).Length;
+        return $"backup written to {path} ({FormatSize(size)})";
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):0.#} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):0.#} GB",
+    };
 }
