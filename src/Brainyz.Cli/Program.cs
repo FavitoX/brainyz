@@ -4,6 +4,7 @@
 using System.CommandLine;
 using Brainyz.Cli;
 using Brainyz.Cli.Commands;
+using Brainyz.Core.Errors;
 
 // Must run before anything touches Nelknet / LibSQL.
 NativeLibraryResolver.Register();
@@ -22,4 +23,12 @@ root.Subcommands.Add(DeleteCommand.Build());
 root.Subcommands.Add(ReindexCommand.Build());
 root.Subcommands.Add(McpCommand.Build());
 
-return await root.Parse(args).InvokeAsync();
+try
+{
+    return await root.Parse(args).InvokeAsync();
+}
+catch (BrainyzException ex)
+{
+    Console.Error.WriteLine(ErrorFormatter.Format(ex));
+    return ErrorFormatter.ExitCodeFor(ex.Code);
+}

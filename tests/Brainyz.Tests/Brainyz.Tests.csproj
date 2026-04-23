@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Brainyz.Core\Brainyz.Core.csproj" />
+    <ProjectReference Include="..\..\src\Brainyz.Cli\Brainyz.Cli.csproj" />
   </ItemGroup>
 
 </Project>
