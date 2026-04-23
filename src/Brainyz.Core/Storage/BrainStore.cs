@@ -26,12 +26,24 @@ public sealed partial class BrainStore : IAsyncDisposable
 {
     private readonly LibSQLConnection _conn;
     private readonly IClock _clock;
+    private readonly string _dbPath;
 
-    private BrainStore(LibSQLConnection conn, IClock clock)
+    private BrainStore(string dbPath, LibSQLConnection conn, IClock clock)
     {
+        _dbPath = dbPath;
         _conn = conn;
         _clock = clock;
     }
+
+    /// <summary>Filesystem path of the LibSQL database this store was opened from.</summary>
+    public string DbPath => _dbPath;
+
+    /// <summary>
+    /// Raw connection. Scoped to <c>internal</c> so only Core-level tools
+    /// (Export/Import/Backup/Restore) that need direct SQL access see it;
+    /// ordinary callers use the typed per-entity methods.
+    /// </summary>
+    internal LibSQLConnection Connection => _conn;
 
     public static async Task<BrainStore> OpenAsync(
         string dbPath,
@@ -44,7 +56,7 @@ public sealed partial class BrainStore : IAsyncDisposable
         var conn = new LibSQLConnection($"Data Source={dbPath}");
         await conn.OpenAsync(ct);
         await Schema.EnsureAppliedAsync(conn, ct);
-        return new BrainStore(conn, clock ?? SystemClock.Instance);
+        return new BrainStore(dbPath, conn, clock ?? SystemClock.Instance);
     }
 
     public ValueTask DisposeAsync() => _conn.DisposeAsync();
