@@ -256,6 +256,9 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
+# brainyz: Core.Backup is a source folder, not a VS backup artifact
+!src/Brainyz.Core/Backup/
+!src/Brainyz.Core/Backup/**
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/
