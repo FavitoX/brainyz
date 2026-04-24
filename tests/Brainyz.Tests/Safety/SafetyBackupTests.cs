@@ -50,4 +50,20 @@ public class SafetyBackupTests : StoreTestBase
         var decisions = await copy.ListAllDecisionsAsync(limit: 1);
         Assert.NotNull(decisions);
     }
+
+    [Fact]
+    public async Task Consecutive_calls_with_same_operation_produce_unique_paths()
+    {
+        // Regression: an earlier second-resolution timestamp format caused
+        // two CreateAsync calls within the same wall-clock second to land
+        // on the same backup filename, and File.Copy(..., overwrite:false)
+        // threw "file already exists". Millisecond resolution keeps the
+        // paths unique even under CI-fast back-to-back calls.
+        var a = await SafetyBackup.CreateAsync(DbPath, operation: "import");
+        var b = await SafetyBackup.CreateAsync(DbPath, operation: "import");
+
+        Assert.NotEqual(a.BackupPath, b.BackupPath);
+        Assert.True(File.Exists(a.BackupPath));
+        Assert.True(File.Exists(b.BackupPath));
+    }
 }

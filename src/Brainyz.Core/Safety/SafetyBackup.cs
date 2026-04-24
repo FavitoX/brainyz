@@ -58,7 +58,16 @@ public static class SafetyBackup
             ?? throw new BrainyzException(failureCode,
                 $"cannot derive directory from path '{sourceDbPath}'");
 
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        // Millisecond resolution (fff) so back-to-back calls with the same
+        // operation don't collide. Second-level granularity was fine when
+        // the helper used VACUUM INTO (failures landed before a file was
+        // written), but the current File.Copy implementation materialises
+        // the file eagerly — two calls within the same wall-clock second
+        // (common on fast Linux CI between serial xUnit tests) would fail
+        // the second File.Copy(..., overwrite: false) with "file already
+        // exists". The readable filename is kept; the extra three digits
+        // are cheap.
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff");
         var name = $"brainyz.pre-{operation}-{timestamp}.db";
         var backupPath = Path.Combine(dir, name);
 
