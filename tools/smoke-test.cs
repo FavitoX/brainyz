@@ -95,6 +95,23 @@ try
     var stillThere = await Run($"show {principleId}");
     Assert(stillThere.Code == 0, "principle should still exist after declined delete");
 
+    // 10. backup writes a zip containing the current brain
+    Step("backup writes a zip");
+    var bkpZip = Path.Combine(configDir, "bkp.zip");
+    await RunOk($"backup --to \"{bkpZip}\"");
+    Assert(File.Exists(bkpZip), $"backup zip not found at {bkpZip}");
+    Assert(new FileInfo(bkpZip).Length > 0, "backup zip is empty");
+
+    // 11. restore from that zip preserves the principle. stdin is redirected
+    //     so the command treats it as --force-equivalent per spec §5.5.
+    Step("restore --force preserves the seeded principle");
+    var restoreOut = await RunOk($"restore --from \"{bkpZip}\" --force");
+    Assert(restoreOut.Contains("restored from"),
+        $"expected 'restored from …' in stdout, got: {restoreOut}");
+    var shownAfter = await Run($"show {principleId}");
+    Assert(shownAfter.Code == 0,
+        $"principle should survive restore but show exited {shownAfter.Code}");
+
     Console.WriteLine();
     Console.WriteLine("✓ smoke test passed.");
     return 0;
