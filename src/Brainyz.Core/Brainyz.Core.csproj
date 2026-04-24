@@ -18,4 +18,8 @@
     <EmbeddedResource Include="..\..\schema.sql" LogicalName="brainyz.schema.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Brainyz.Tests" />
+  </ItemGroup>
+
 </Project>
