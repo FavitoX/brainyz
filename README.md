@@ -76,7 +76,18 @@ brainz link <principle-id> derived_from <decision-id>
 # Debug scope resolution
 brainz scope                      # prints: source / project / hint
 
-# Run as an MCP server (stdio) — exposes 11 tools to Claude Code / Cursor / …
+# Export / import (JSONL — text-level, greppable, inspectable with jq)
+brainz export --to brain.jsonl                 # whole brain
+brainz export --to ailang.jsonl --project <id> # filter by project
+brainz import --from brain.jsonl               # replace local DB (default mode)
+brainz import --from brain.jsonl --mode additive  # add missing entries, skip collisions
+brainz import --from brain.jsonl --dry-run     # parse + validate, no mutation
+
+# Backup / restore (zip — atomic, fast, for full-DB snapshots)
+brainz backup  --to brain.zip                  # VACUUM INTO + manifest, zipped
+brainz restore --from brain.zip                # restore, with pre-restore safety backup
+
+# Run as an MCP server (stdio) — exposes tools to Claude Code / Cursor / …
 brainz mcp
 ```
 
@@ -150,19 +161,21 @@ dotnet publish src/Brainyz.Cli -c Release -r <your-runtime>
 
 ## Project status
 
-**v0.1 — core functional, wiring up release.**
+**v0.3 — export / import / backup / restore.** Shipped ([CHANGELOG](CHANGELOG.md)).
 
 - CLI: `init`, `scope`, `add (decision|principle|note)`, `list`, `search`,
-  `show`, `link`, `reindex`, `mcp`. ✅
-- MCP server: 11 tools over stdio — `search`, `find_similar`, `get`,
-  `get_principles`, `list_projects`, `get_links`, `resolve_scope`,
-  `add_decision`, `add_principle`, `add_note`, `link`. ✅
+  `show`, `link`, `edit`, `delete`, `reindex`, `export`, `import`,
+  `backup`, `restore`, `mcp`. ✅
+- MCP server: tools over stdio for scope, search, CRUD, graph, export,
+  and backup. ✅
 - Embeddings: Ollama + nomic-embed-text, best-effort on writes, FTS5
   fallback when unavailable. ✅
+- Error reference: every command surfaces typed `BZ_*` codes documented
+  in [docs/errors.md](docs/errors.md).
 
-Missing for v1.0: edit/delete commands, front-end, sync activation,
-plugin SDK. See [brainyz-decisions.md](brainyz-decisions.md) for the
-design trail.
+Missing for v1.0: front-end, sync activation (libsql-server), plugin
+SDK. See [brainyz-decisions.md](brainyz-decisions.md) for the design
+trail.
 
 If you want to follow along or try it early, watch the repo.
 If you want to contribute, open an issue before a large PR — see

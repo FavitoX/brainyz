@@ -95,24 +95,24 @@ public sealed class ZipRestore
                     $"backup schema v{manifest.SchemaVersion}, local schema v{SchemaVersion.Current}",
                     tip: "migration is not yet supported; restore on a matching brainyz version");
 
-            // Safety backup of the current DB (if any) before touching the target.
+            // Safety backup of the current DB (if any) before touching the
+            // target. We use File.Copy — NOT SafetyBackup.CreateAsync
+            // (VACUUM INTO) — because opening a LibSQL connection on
+            // Windows leaves the DB's file handle briefly in a state that
+            // blocks the subsequent File.Move. File-level copy captures a
+            // consistent snapshot for our purposes: we're about to replace
+            // the DB wholesale anyway, so any concurrent writer has to
+            // tolerate the swap. VACUUM INTO remains the right tool for
+            // the import path, where we open the DB ourselves.
             //
-            // NOTE on lock detection: SQLite/LibSQL on Windows opens DB files
-            // with FileShare.Read (no FileShare.Delete), which makes
-            // File.Move fail with IOException when any process still holds
-            // the DB. We classify that specific Move failure as
-            // BZ_RESTORE_DB_LOCKED below rather than probing upfront — a
-            // preemptive probe with FileShare.None over-detects briefly-
-            // lingering handles from the calling process's own just-closed
-            // connections (Windows keeps them alive past DisposeAsync).
+            // Lock detection on the final swap: SQLite/LibSQL on Windows
+            // opens DB files with FileShare.Read (no Delete share), which
+            // makes File.Move fail when any other process still holds the
+            // DB. That Move failure is classified as BZ_RESTORE_DB_LOCKED
+            // below (see MoveAtomicallyAsync).
             string? safetyBackupPath = null;
             if (!skipSafetyBackup && File.Exists(_targetDbPath))
-            {
-                var res = await SafetyBackup.CreateAsync(
-                    _targetDbPath, operation: "restore",
-                    failureCode: ErrorCode.BZ_RESTORE_SAFETY_BACKUP_FAILED, ct);
-                safetyBackupPath = res.BackupPath;
-            }
+                safetyBackupPath = CopyPreRestoreSnapshot(_targetDbPath);
 
             var targetDir = Path.GetDirectoryName(_targetDbPath)
                 ?? throw new BrainyzException(
@@ -224,6 +224,47 @@ public sealed class ZipRestore
     private static bool IsLockLike(Exception ex) =>
         ex is UnauthorizedAccessException
         || (ex is IOException io && IsSharingViolation(io));
+
+    private static string CopyPreRestoreSnapshot(string sourceDbPath)
+    {
+        var dir = Path.GetDirectoryName(sourceDbPath)
+            ?? throw new BrainyzException(
+                ErrorCode.BZ_RESTORE_SAFETY_BACKUP_FAILED,
+                $"cannot derive directory from '{sourceDbPath}'");
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var backupPath = Path.Combine(dir, $"brainyz.pre-restore-{timestamp}.db");
+
+        try
+        {
+            File.Copy(sourceDbPath, backupPath, overwrite: false);
+
+            // Also copy WAL and SHM sidecars if present — they contain
+            // uncommitted writes the main file doesn't yet see.
+            foreach (var ext in new[] { "-wal", "-shm" })
+            {
+                var sidecar = sourceDbPath + ext;
+                if (File.Exists(sidecar))
+                    File.Copy(sidecar, backupPath + ext, overwrite: false);
+            }
+        }
+        catch (IOException ex) when (IsDiskFull(ex))
+        {
+            throw new BrainyzException(
+                ErrorCode.BZ_RESTORE_DISK_FULL,
+                $"disk full while writing pre-restore safety backup at '{backupPath}'",
+                inner: ex);
+        }
+        catch (Exception ex)
+        {
+            throw new BrainyzException(
+                ErrorCode.BZ_RESTORE_SAFETY_BACKUP_FAILED,
+                $"failed to write pre-restore safety backup at '{backupPath}': {ex.Message}",
+                tip: "check disk space and that the target directory is writable",
+                inner: ex);
+        }
+
+        return backupPath;
+    }
 
     private static bool IsDiskFull(Exception ex) =>
         ex is IOException io &&
