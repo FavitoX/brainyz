@@ -167,6 +167,13 @@ public class ZipRestoreTests : StoreTestBase
     [Fact]
     public async Task Lock_probe_detects_another_process_holding_target_db()
     {
+        // Windows-only: on POSIX File.Move (rename syscall) succeeds over
+        // an open file — the open fd keeps the old inode alive — so this
+        // class of "another process has the DB" error does not surface at
+        // move time. Skip on non-Windows rather than assert a platform-
+        // dependent behavior.
+        if (!OperatingSystem.IsWindows()) return;
+
         await ExportSeed.PopulateAsync(Store);
 
         var zipPath = Path.Combine(Path.GetTempPath(), $"locked-{Guid.NewGuid():N}.zip");
@@ -175,7 +182,8 @@ public class ZipRestoreTests : StoreTestBase
             await new ZipBackup(Store, "0.3.0-test")
                 .BackupAsync(zipPath, CompressionLevel.Fastest);
 
-            // Store is still open on DbPath. The probe should detect that and fail.
+            // Store is still open on DbPath. The Move-based probe should
+            // detect that and throw BZ_RESTORE_DB_LOCKED.
             var restore = new ZipRestore(DbPath);
             var ex = await Assert.ThrowsAsync<BrainyzException>(() =>
                 restore.RestoreAsync(zipPath, skipSafetyBackup: true));
