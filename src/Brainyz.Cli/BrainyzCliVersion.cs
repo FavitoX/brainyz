@@ -12,5 +12,5 @@ namespace Brainyz.Cli;
 /// </summary>
 internal static class BrainyzCliVersion
 {
-    public const string Current = "0.3.0";
+    public const string Current = "0.4.0";
 }
