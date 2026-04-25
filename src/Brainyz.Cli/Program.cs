@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.CommandLine;
+using System.Linq;
 using Brainyz.Cli;
 using Brainyz.Cli.Commands;
 using Brainyz.Core.Errors;
@@ -26,6 +27,12 @@ root.Subcommands.Add(ImportCommand.Build());
 root.Subcommands.Add(BackupCommand.Build());
 root.Subcommands.Add(RestoreCommand.Build());
 root.Subcommands.Add(McpCommand.Build());
+
+// Replace the auto-attached VersionOption's action so `brainz --version`
+// prints `brainyz <semver>` instead of the assembly version. Package-manager
+// test hooks (Homebrew test_do, AUR check()) assert on this format.
+var versionOption = root.Options.OfType<System.CommandLine.VersionOption>().Single();
+versionOption.Action = new PrintVersionAction();
 
 try
 {
