@@ -16,10 +16,18 @@
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>$(BrainyzCliVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Brainyz.Tests" />
   </ItemGroup>
+
+  <Target Name="GetVersionFromSource" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_VersionSource>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)BrainyzCliVersion.cs'))</_VersionSource>
+      <BrainyzCliVersion>$([System.Text.RegularExpressions.Regex]::Match($(_VersionSource), 'Current\s*=\s*"([^"]+)"').Groups[1].Value)</BrainyzCliVersion>
+    </PropertyGroup>
+  </Target>
 
 </Project>
