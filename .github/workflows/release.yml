@@ -110,9 +110,41 @@ jobs:
           name: brainz-${{ matrix.rid }}
           path: brainz-${{ matrix.rid }}.*
 
+  checksums:
+    name: generate SHA256SUMS
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256SUMS
+        run: |
+          cd artifacts
+          # Literal list — must match the build matrix's artifact names. The
+          # linux-arm64 archive ships even when its smoke-test is skipped.
+          sha256sum brainz-linux-x64.tar.gz \
+                    brainz-linux-arm64.tar.gz \
+                    brainz-osx-arm64.tar.gz \
+                    brainz-win-x64.zip \
+            > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Verify checksums
+        run: |
+          cd artifacts
+          sha256sum -c SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: checksums
+          path: artifacts/SHA256SUMS.txt
+
   release:
     name: publish GitHub Release
-    needs: build
+    needs: [build, checksums]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -131,4 +163,6 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: artifacts/brainz-*.*
+          files: |
+            artifacts/brainz-*.*
+            artifacts/SHA256SUMS.txt
