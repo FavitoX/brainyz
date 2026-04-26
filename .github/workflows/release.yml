@@ -166,3 +166,61 @@ jobs:
           files: |
             artifacts/brainz-*.*
             artifacts/SHA256SUMS.txt
+
+  update-homebrew-tap:
+    name: update Homebrew tap
+    needs: release
+    runs-on: ubuntu-latest
+    # Stable tags only. Guard handles both tag-push and workflow_dispatch:
+    # on tag-push ref_name is the tag; on workflow_dispatch ref_name is the
+    # branch, so we OR-check the input tag as well.
+    if: >
+      !contains(github.event.inputs.tag || github.ref_name, '-')
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute release metadata
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch SHA256SUMS from release
+        run: |
+          curl -fsSL -o SHA256SUMS.txt \
+            "https://github.com/FavitoX/brainyz/releases/download/${{ steps.meta.outputs.tag }}/SHA256SUMS.txt"
+
+      - name: Render Formula
+        run: |
+          bash tools/render-homebrew-formula.sh \
+            "${{ steps.meta.outputs.version }}" \
+            "${{ steps.meta.outputs.tag }}" \
+            SHA256SUMS.txt \
+            > Formula-brainyz.rb
+          head -30 Formula-brainyz.rb
+
+      - name: Push to chaosfabric/homebrew-tap
+        env:
+          DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          # Use '%s\n' (not '%s'): OpenSSH ed25519 keys require a trailing
+          # newline after '-----END OPENSSH PRIVATE KEY-----', and GitHub
+          # Actions strips the trailing newline of secret values on read.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone git@github.com:chaosfabric/homebrew-tap.git tap
+          mkdir -p tap/Formula
+          cp Formula-brainyz.rb tap/Formula/brainyz.rb
+          cd tap
+          git -c user.name='brainyz-release-bot' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -am "brainyz ${{ steps.meta.outputs.version }}" || {
+            echo "No change; formula already at version ${{ steps.meta.outputs.version }}."
+            exit 0
+          }
+          git push
