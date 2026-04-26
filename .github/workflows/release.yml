@@ -224,3 +224,58 @@ jobs:
             exit 0
           }
           git push
+
+  update-scoop-bucket:
+    name: update Scoop bucket
+    needs: release
+    runs-on: ubuntu-latest
+    if: >
+      !contains(github.event.inputs.tag || github.ref_name, '-')
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute release metadata
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch SHA256SUMS from release
+        run: |
+          curl -fsSL -o SHA256SUMS.txt \
+            "https://github.com/FavitoX/brainyz/releases/download/${{ steps.meta.outputs.tag }}/SHA256SUMS.txt"
+
+      - name: Render manifest
+        run: |
+          bash tools/render-scoop-manifest.sh \
+            "${{ steps.meta.outputs.version }}" \
+            "${{ steps.meta.outputs.tag }}" \
+            SHA256SUMS.txt \
+            > brainyz.json
+          jq . brainyz.json
+
+      - name: Push to chaosfabric/scoop-bucket
+        env:
+          DEPLOY_KEY: ${{ secrets.SCOOP_BUCKET_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          # Use '%s\n' (not '%s'): OpenSSH ed25519 keys require a trailing
+          # newline after '-----END OPENSSH PRIVATE KEY-----', and GitHub
+          # Actions strips the trailing newline of secret values on read.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git clone git@github.com:chaosfabric/scoop-bucket.git bucket
+          mkdir -p bucket/bucket
+          cp brainyz.json bucket/bucket/brainyz.json
+          cd bucket
+          git -c user.name='brainyz-release-bot' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -am "brainyz ${{ steps.meta.outputs.version }}" || {
+            echo "No change; manifest already at version ${{ steps.meta.outputs.version }}."
+            exit 0
+          }
+          git push
