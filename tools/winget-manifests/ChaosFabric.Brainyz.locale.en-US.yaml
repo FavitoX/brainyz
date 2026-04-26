@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: ChaosFabric.Brainyz
+PackageVersion: "{{VERSION}}"
+PackageLocale: en-US
+Publisher: ChaosFabric
+PublisherUrl: https://github.com/chaosfabric
+PublisherSupportUrl: https://github.com/FavitoX/brainyz/issues
+PackageName: Brainyz
+PackageUrl: https://github.com/FavitoX/brainyz
+License: Apache-2.0
+LicenseUrl: https://github.com/FavitoX/brainyz/blob/master/LICENSE
+ShortDescription: Second-brain CLI with MCP integration for AI agents
+Description: |
+  brainyz is a local-first knowledge layer for developers working with AI
+  agents. Record decisions, principles, and reference notes once;
+  retrieve them from any project, via CLI or MCP server, by any AI
+  agent, for as long as you want to remember.
+Moniker: brainyz
+Tags:
+  - cli
+  - mcp
+  - knowledge-management
+  - second-brain
+  - developer-tools
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

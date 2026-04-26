@@ -1,0 +1,4 @@
+# Generate the real .SRCINFO on bootstrap with:
+#   makepkg --printsrcinfo > .SRCINFO
+# Run this in a copy of tools/aur/ on an Arch box after filling in the
+# real sha256sums_x86_64.

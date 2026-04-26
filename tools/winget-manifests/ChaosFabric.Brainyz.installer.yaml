@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: ChaosFabric.Brainyz
+PackageVersion: "{{VERSION}}"
+InstallerType: zip
+NestedInstallerType: portable
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/FavitoX/brainyz/releases/download/v{{VERSION}}/brainz-win-x64.zip
+    InstallerSha256: "{{SHA256_WIN_X64}}"
+    NestedInstallerFiles:
+      - RelativeFilePath: brainz.exe
+        PortableCommandAlias: brainz
+      - RelativeFilePath: brainz.exe
+        PortableCommandAlias: bz
+ManifestType: installer
+ManifestVersion: 1.6.0

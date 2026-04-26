@@ -1,0 +1,31 @@
+# Maintainer: Favio Leyva <andy.carp@gmail.com>
+pkgname=brainyz-bin
+_pkgname=brainyz
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Second-brain CLI with MCP integration for AI agents"
+arch=('x86_64')
+url="https://github.com/FavitoX/brainyz"
+license=('Apache-2.0')
+provides=('brainyz')
+conflicts=('brainyz')
+source_x86_64=("$pkgname-$pkgver.tar.gz::https://github.com/FavitoX/brainyz/releases/download/v$pkgver/brainz-linux-x64.tar.gz")
+sha256sums_x86_64=('SKIP')
+# ^-- On bootstrap, replace 'SKIP' with the real SHA256 from the release's
+#     SHA256SUMS.txt. updpkgsums(8) from devtools also works if you prefer
+#     the automated path. Do NOT publish with SKIP.
+
+package() {
+  # Install binary + sibling libsql.so into /usr/lib/brainyz/; NativeAOT's
+  # $ORIGIN rpath resolves the .so relative to the binary's own directory,
+  # and ld.so follows symlinks when computing $ORIGIN (readlink /proc/self/exe).
+  install -Dm755 "$srcdir/brainz"    "$pkgdir/usr/lib/brainyz/brainz"
+  install -Dm755 "$srcdir/libsql.so" "$pkgdir/usr/lib/brainyz/libsql.so"
+  install -d "$pkgdir/usr/bin"
+  ln -s ../lib/brainyz/brainz "$pkgdir/usr/bin/brainz"
+  ln -s ../lib/brainyz/brainz "$pkgdir/usr/bin/bz"
+}
+
+check() {
+  "$srcdir/brainz" --version | grep -Fq "brainyz $pkgver"
+}
