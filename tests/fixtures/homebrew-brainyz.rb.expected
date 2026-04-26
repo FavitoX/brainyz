@@ -1,0 +1,35 @@
+class Brainyz < Formula
+  desc "Second-brain CLI with MCP integration for AI agents"
+  homepage "https://github.com/FavitoX/brainyz"
+  version "0.4.0"
+  license "Apache-2.0"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/FavitoX/brainyz/releases/download/v0.4.0/brainz-osx-arm64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000003"
+    end
+  end
+
+  on_linux do
+    on_intel do
+      url "https://github.com/FavitoX/brainyz/releases/download/v0.4.0/brainz-linux-x64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000001"
+    end
+    on_arm do
+      url "https://github.com/FavitoX/brainyz/releases/download/v0.4.0/brainz-linux-arm64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000002"
+    end
+  end
+
+  def install
+    libexec.install "brainz"
+    libexec.install Dir["*.so", "*.dylib"]
+    bin.install_symlink libexec/"brainz"
+    bin.install_symlink libexec/"brainz" => "bz"
+  end
+
+  test do
+    assert_match "brainyz #{version}", shell_output("#{bin}/brainz --version")
+  end
+end
