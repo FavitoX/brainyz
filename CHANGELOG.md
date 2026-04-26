@@ -6,6 +6,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-04-26
+
+### Added
+- Homebrew tap — `brew install chaosfabric/tap/brainyz` (macOS arm64,
+  Linux x64, Linux arm64). Installs both `brainz` and `bz` on `PATH`.
+- Scoop bucket — `scoop bucket add chaosfabric
+  https://github.com/chaosfabric/scoop-bucket && scoop install
+  brainyz` (Windows x64).
+- Winget — `winget install ChaosFabric.Brainyz` (Windows x64,
+  bootstrapped manually in this release; auto-update from v0.5+).
+- AUR — `yay -S brainyz-bin` (Arch Linux x64, bootstrapped manually
+  in this release; auto-update from v0.5+).
+- `SHA256SUMS.txt` published with every release as the trust root
+  for every downstream package manifest.
+- `brainz --version` now prints `brainyz <semver>` (was the raw
+  assembly version). Package-manager lint steps assert on this format.
+- `docs/packaging.md` — channels overview, release-time automation,
+  manual bootstrap, per-release verification checklist, rollback.
+- Weekly `packaging.yml` workflow: golden-diff tests on the render
+  scripts, `brew audit --strict` on the tap formula, and drift
+  detection across all four channels (opens/updates a GitHub issue if
+  any channel falls behind).
+
+### Changed
+- `Brainyz.Cli.csproj` derives `<Version>` from `BrainyzCliVersion.Current`
+  via an MSBuild `GetVersionFromSource` target, keeping a single source
+  of truth for the CLI version string.
+- `release.yml` gains two updater jobs (`update-homebrew-tap`,
+  `update-scoop-bucket`) that render templated manifests from the
+  release's `SHA256SUMS.txt` and push to the `chaosfabric/*` repos via
+  deploy keys. Both skip on pre-release tags and are
+  `continue-on-error: true` so a packaging hiccup can't block a
+  release.
+
+### Internal
+- `tools/templates/` — Homebrew formula + Scoop manifest templates.
+- `tools/render-homebrew-formula.sh`, `tools/render-scoop-manifest.sh` —
+  bash + awk + sed renderers.
+- `tests/fixtures/SHA256SUMS.example.txt` + golden expected outputs;
+  `tests/template-render.test.sh` harness.
+- `tools/winget-manifests/` + `tools/aur/PKGBUILD` — templates checked
+  in for reference during the manual bootstrap of each new release.
+
 ## [0.3.0] — 2026-04-23
 
 ### Added
@@ -107,7 +150,8 @@ embeddings via Ollama + per-project scoping. See
 [brainyz-decisions.md](brainyz-decisions.md) for the full design
 trail.
 
-[Unreleased]: https://github.com/FavitoX/brainyz/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/FavitoX/brainyz/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/FavitoX/brainyz/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/FavitoX/brainyz/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/FavitoX/brainyz/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/FavitoX/brainyz/releases/tag/v0.1.0

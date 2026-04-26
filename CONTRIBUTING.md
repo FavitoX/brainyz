@@ -70,6 +70,28 @@ dotnet test
 - One logical change per commit. No trailing "WIP", "tests", "fixup" in merged
   history.
 
+## Releasing
+
+Stable releases are cut by pushing a `vX.Y.Z` tag (no pre-release
+suffix). The `.github/workflows/release.yml` workflow then:
+
+1. Builds + smoke-tests the 4-RID NativeAOT matrix.
+2. Publishes the GitHub Release with archives + `SHA256SUMS.txt`.
+3. Pushes an updated formula to `chaosfabric/homebrew-tap` and an
+   updated manifest to `chaosfabric/scoop-bucket`.
+
+Winget and AUR are bootstrapped manually on each release for v0.4 —
+see [docs/packaging.md](docs/packaging.md) for the step-by-step.
+
+Pre-release tags (anything containing `-`, e.g. `v0.5.0-rc.1`) skip
+the package-manager updater jobs; only the GitHub Release is cut.
+
+**After every stable release, before announcing**: run the
+[per-release verification checklist](docs/packaging.md#per-release-verification-checklist)
+in `docs/packaging.md`. The five-channel `brainz --version` smoke takes
+~10 minutes against fresh containers and catches updater bugs before
+users hit them.
+
 ## Licence
 
 By contributing you agree that your contributions will be licensed under the

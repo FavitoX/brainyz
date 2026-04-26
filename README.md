@@ -127,19 +127,45 @@ From then on, every Claude Code session in any repo has tools like
 
 > **brainyz is in early development.** Expect breaking changes until v1.0.
 
-### From GitHub Releases (recommended)
+### macOS / Linux (Homebrew)
 
-Download the archive for your platform from
-[Releases](https://github.com/FavitoX/brainyz/releases), extract, and put
-`brainz` on your `PATH`.
+```sh
+brew install chaosfabric/tap/brainyz
+```
 
-Supported runtimes: `linux-x64`, `linux-arm64`, `osx-arm64`, `win-x64`.
-Intel Macs are not published today (Rosetta 2 runs the x64 binary from
-other platforms; open an issue if you need a native Intel build).
+### Windows (Winget — recommended)
 
-Then pull the embedding model once:
+```powershell
+winget install ChaosFabric.Brainyz
+```
 
-```bash
+### Windows (Scoop)
+
+```powershell
+scoop bucket add chaosfabric https://github.com/chaosfabric/scoop-bucket
+scoop install brainyz
+```
+
+### Arch Linux (AUR)
+
+```sh
+yay -S brainyz-bin   # or paru, pikaur, etc.
+```
+
+All package managers install a `bz` shortcut alongside `brainz`.
+
+### Manual download
+
+Archives for `linux-x64`, `linux-arm64`, `osx-arm64`, and `win-x64` are
+published on [Releases](https://github.com/FavitoX/brainyz/releases)
+with a `SHA256SUMS.txt` for verification. Extract and put `brainz` (or
+`brainz.exe`) on your `PATH`. Intel Macs are not published natively —
+Rosetta 2 runs the `osx-arm64` binary via emulation; open an issue if
+you need a native Intel build.
+
+Then pull the embedding model once (optional — CLI/MCP work without it):
+
+```sh
 ollama pull nomic-embed-text
 ```
 
@@ -158,6 +184,9 @@ cd brainyz
 dotnet publish src/Brainyz.Cli -c Release -r <your-runtime>
 # Copy the binary to your PATH as `brainz`
 ```
+
+See [docs/packaging.md](docs/packaging.md) for the release-time
+automation, manual bootstrap of each channel, and per-channel rollback.
 
 ## Project status
 
