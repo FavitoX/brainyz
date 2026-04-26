@@ -1,0 +1,138 @@
+# Copyright 2026 Favio Andres Leyva
+# SPDX-License-Identifier: Apache-2.0
+
+name: Packaging verification
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays 06:17 UTC (off-peak, stable-hours)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  template-smoke:
+    name: golden-diff render tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: bash tests/template-render.test.sh
+
+  homebrew-audit:
+    name: brew audit tap formula
+    runs-on: macos-latest
+    steps:
+      - name: Tap + audit
+        run: |
+          brew tap chaosfabric/tap
+          brew audit --strict --online chaosfabric/tap/brainyz
+
+  drift-detection:
+    name: detect channel drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Latest GitHub Release
+        id: gh
+        run: |
+          LATEST=$(curl -fsSL https://api.github.com/repos/FavitoX/brainyz/releases/latest | jq -r .tag_name)
+          echo "version=${LATEST#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Homebrew tap version
+        id: brew
+        run: |
+          VER=$(curl -fsSL https://raw.githubusercontent.com/chaosfabric/homebrew-tap/HEAD/Formula/brainyz.rb \
+                | grep -oE 'version "[^"]+"' | head -n1 | cut -d'"' -f2 || true)
+          echo "version=${VER:-missing}" >> "$GITHUB_OUTPUT"
+
+      - name: Scoop bucket version
+        id: scoop
+        run: |
+          VER=$(curl -fsSL https://raw.githubusercontent.com/chaosfabric/scoop-bucket/HEAD/bucket/brainyz.json \
+                | jq -r .version 2>/dev/null || true)
+          echo "version=${VER:-missing}" >> "$GITHUB_OUTPUT"
+
+      - name: Winget manifest version
+        id: winget
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The folder name IS the version — list and take the largest by version-sort.
+          VER=$(gh api repos/microsoft/winget-pkgs/contents/manifests/c/ChaosFabric/Brainyz \
+                --jq '.[].name' 2>/dev/null | sort -V | tail -n1 || true)
+          echo "version=${VER:-missing}" >> "$GITHUB_OUTPUT"
+
+      - name: AUR version
+        id: aur
+        run: |
+          VER=$(curl -fsSL 'https://aur.archlinux.org/rpc/?v=5&type=info&arg=brainyz-bin' \
+                | jq -r '.results[0].Version // empty' \
+                | sed 's/-[0-9]*$//' 2>/dev/null || true)
+          echo "version=${VER:-missing}" >> "$GITHUB_OUTPUT"
+
+      - name: Compare and open/update drift issue
+        uses: actions/github-script@v8
+        env:
+          GH_VER:     ${{ steps.gh.outputs.version }}
+          BREW_VER:   ${{ steps.brew.outputs.version }}
+          SCOOP_VER:  ${{ steps.scoop.outputs.version }}
+          WINGET_VER: ${{ steps.winget.outputs.version }}
+          AUR_VER:    ${{ steps.aur.outputs.version }}
+        with:
+          script: |
+            const latest = process.env.GH_VER;
+            // Pre-bootstrap guard: until v0.4.0 ships, all four channels are
+            // legitimately empty. Don't open spurious "drift" issues — let
+            // the human run docs/packaging.md§"Manual bootstrap" first.
+            const FIRST_PACKAGED_VERSION = '0.4.0';
+            const cmpSemver = (a, b) => a.split('.').map(Number)
+              .reduce((r, n, i) => r || (n - (Number(b.split('.')[i]) || 0)), 0);
+            if (!latest || cmpSemver(latest, FIRST_PACKAGED_VERSION) < 0) {
+              core.info(`Latest GitHub release (${latest || 'none'}) precedes first packaged version ${FIRST_PACKAGED_VERSION}; skipping drift check.`);
+              return;
+            }
+
+            const channels = {
+              Homebrew: process.env.BREW_VER,
+              Scoop:    process.env.SCOOP_VER,
+              Winget:   process.env.WINGET_VER,
+              AUR:      process.env.AUR_VER,
+            };
+            const stale = Object.entries(channels).filter(([, v]) => v !== latest);
+            if (stale.length === 0) {
+              core.info(`All channels in sync at ${latest}`);
+              return;
+            }
+
+            const title = `Packaging drift: latest release is ${latest}`;
+            const body = [
+              `GitHub Release: **${latest}**`,
+              '',
+              '| Channel | Version | Status |',
+              '|---|---|---|',
+              ...Object.entries(channels).map(([c, v]) =>
+                `| ${c} | ${v} | ${v === latest ? 'OK' : 'STALE'} |`),
+              '',
+              'Detected by `.github/workflows/packaging.yml`.',
+              'Re-run the release workflow or investigate channel-specific updater logs.',
+            ].join('\n');
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'packaging-drift', per_page: 100,
+            });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              core.info(`Updated existing drift issue #${existing.number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['packaging-drift'],
+              });
+              core.info(`Opened drift issue #${issue.number}`);
+            }
