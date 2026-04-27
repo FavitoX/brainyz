@@ -7,6 +7,18 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
   </ItemGroup>
 
+  <!--
+    Read BrainyzCliVersion.Current at MSBuild evaluation time so $(Version)
+    resolves before GenerateAssemblyInfo runs. A target with
+    BeforeTargets="BeforeBuild" evaluates too late: the SDK has already baked
+    AssemblyInformationalVersionAttribute by then and the assembly stamps as
+    1.0.0. Top-level <PropertyGroup> is read at evaluation time.
+  -->
+  <PropertyGroup>
+    <_VersionSource>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)BrainyzCliVersion.cs'))</_VersionSource>
+    <BrainyzCliVersion>$([System.Text.RegularExpressions.Regex]::Match($(_VersionSource), 'Current\s*=\s*"([^"]+)"').Groups[1].Value)</BrainyzCliVersion>
+  </PropertyGroup>
+
   <PropertyGroup>
     <AssemblyName>brainz</AssemblyName>
     <RootNamespace>Brainyz.Cli</RootNamespace>
@@ -22,12 +34,5 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Brainyz.Tests" />
   </ItemGroup>
-
-  <Target Name="GetVersionFromSource" BeforeTargets="BeforeBuild">
-    <PropertyGroup>
-      <_VersionSource>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)BrainyzCliVersion.cs'))</_VersionSource>
-      <BrainyzCliVersion>$([System.Text.RegularExpressions.Regex]::Match($(_VersionSource), 'Current\s*=\s*"([^"]+)"').Groups[1].Value)</BrainyzCliVersion>
-    </PropertyGroup>
-  </Target>
 
 </Project>
