@@ -72,7 +72,7 @@ jobs:
           echo "version=${VER:-missing}" >> "$GITHUB_OUTPUT"
 
       - name: Compare and open/update drift issue
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           GH_VER:     ${{ steps.gh.outputs.version }}
           BREW_VER:   ${{ steps.brew.outputs.version }}
